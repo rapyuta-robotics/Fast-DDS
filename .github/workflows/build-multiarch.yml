@@ -1,0 +1,59 @@
+name: Build libfastrtps multiarch (Foxy 2.1.4)
+
+# Builds libfastrtps.so.2.1.4 for amd64 + arm64 against ROS 2 Foxy / Ubuntu 20.04,
+# so custom-fix branches can be dropped into running production (Jetson=arm64, edge/server=amd64).
+on:
+  push:
+    branches: [ 'rapyuta/**' ]
+  pull_request:
+    branches: [ 'rapyuta/**' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ amd64, arm64 ]
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU (for arm64 emulation)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build fastrtps in Foxy container
+        run: |
+          docker run --rm --platform linux/${{ matrix.arch }} \
+            -v "$PWD":/src -w /src \
+            osrf/ros:foxy-desktop bash -lc '
+              set -eo pipefail
+              source /opt/ros/foxy/setup.bash
+              mkdir -p build && cd build
+              cmake .. -DCMAKE_BUILD_TYPE=Release \
+                -DTHIRDPARTY=ON -DTHIRDPARTY_UPDATE=OFF \
+                -DCOMPILE_EXAMPLES=OFF -DBUILD_TESTING=OFF -DSECURITY=OFF
+              make -j"$(nproc)" fastrtps
+              echo "=== SONAME / deps ==="
+              readelf -d src/cpp/libfastrtps.so.2.1.4 | grep -E "SONAME|NEEDED" || true
+              md5sum src/cpp/libfastrtps.so.2.1.4
+            '
+
+      - name: Stage artifact
+        run: |
+          mkdir -p out
+          cp -av build/src/cpp/libfastrtps.so.2.1.4 out/
+          ( cd out && ln -sf libfastrtps.so.2.1.4 libfastrtps.so.2 && ln -sf libfastrtps.so.2 libfastrtps.so )
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libfastrtps-${{ matrix.arch }}-foxy-2.1.4
+          path: out/
+          if-no-files-found: error
