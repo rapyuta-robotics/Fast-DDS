@@ -32,14 +32,23 @@ jobs:
             -v "$PWD":/src -w /src \
             ros:foxy-ros-base bash -lc '
               set -eo pipefail
+              # SECURITY=ON to match stock ros-foxy-fastrtps ABI: HAVE_SECURITY changes discovery
+              # struct layouts (ParticipantProxyData etc.); a SECURITY=OFF lib mismatches the
+              # security-ON rmw_fastrtps_shared_cpp -> garbage discovery lengths -> std::bad_alloc
+              # in onParticipantDiscovery. Needs libssl-dev for the security plugins.
+              apt-get update && apt-get install -y --no-install-recommends libssl-dev
               source /opt/ros/foxy/setup.bash
               mkdir -p build && cd build
               cmake .. -DCMAKE_BUILD_TYPE=Release \
                 -DTHIRDPARTY=ON -DTHIRDPARTY_UPDATE=OFF \
-                -DCOMPILE_EXAMPLES=OFF -DBUILD_TESTING=OFF -DSECURITY=OFF
+                -DCOMPILE_EXAMPLES=OFF -DBUILD_TESTING=OFF -DSECURITY=ON
               make -j"$(nproc)" fastrtps
               echo "=== SONAME / deps ==="
               readelf -d src/cpp/libfastrtps.so.2.1.4 | grep -E "SONAME|NEEDED" || true
+              echo "=== ABI guard: SecurityManager symbols must be >0 (match stock Foxy SECURITY=ON) ==="
+              sec=$(nm -DC src/cpp/libfastrtps.so.2.1.4 | grep -c SecurityManager || true)
+              echo "SecurityManager symbols: $sec"
+              if [ "$sec" -eq 0 ]; then echo "ABI MISMATCH: built without SECURITY -> bad_alloc vs Foxy rmw"; exit 1; fi
               md5sum src/cpp/libfastrtps.so.2.1.4
             '
 
