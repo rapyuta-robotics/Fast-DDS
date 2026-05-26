@@ -19,7 +19,7 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest-8-cores        # org larger runner, 8-core x64
           - arch: arm64
-            runner: ubuntu-latest-8-cores-arm64  # org larger runner, 8-core NATIVE arm64 (no QEMU)
+            runner: ubuntu-22.04-arm             # free native arm64 hosted (org 8-core-arm64 group not authorized for fork)
     steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
