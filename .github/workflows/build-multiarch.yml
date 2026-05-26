@@ -17,9 +17,9 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-22.04
+            runner: ubuntu-latest-8-cores        # org larger runner, 8-core x64
           - arch: arm64
-            runner: ubuntu-22.04-arm   # native arm64 hosted runner (no QEMU; free on public repo)
+            runner: ubuntu-latest-8-cores-arm64  # org larger runner, 8-core NATIVE arm64 (no QEMU)
     steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
