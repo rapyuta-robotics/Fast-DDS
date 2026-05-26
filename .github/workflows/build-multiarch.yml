@@ -32,7 +32,7 @@ jobs:
         run: |
           docker run --rm --platform linux/${{ matrix.arch }} \
             -v "$PWD":/src -w /src \
-            osrf/ros:foxy-desktop bash -lc '
+            ros:foxy-ros-base bash -lc '
               set -eo pipefail
               source /opt/ros/foxy/setup.bash
               mkdir -p build && cd build
