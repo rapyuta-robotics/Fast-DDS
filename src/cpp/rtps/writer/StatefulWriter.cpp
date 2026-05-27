@@ -2085,7 +2085,7 @@ bool StatefulWriter::process_acknack(
                             RTPSGapBuilder gap_builder(group);
 
                             if (remote_reader->requested_changes_set(sn_set,
-                                    gap_builder) || remote_reader->are_there_gaps())
+                                    gap_builder, get_seq_num_min()) || remote_reader->are_there_gaps())
                             {
                                 nack_response_event_->restart_timer();
                             }
