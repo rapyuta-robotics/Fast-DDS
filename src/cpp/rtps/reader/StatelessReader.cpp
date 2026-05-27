@@ -184,10 +184,30 @@ bool StatelessReader::change_received(
     // TODO Revisar si no hay que incluirlo.
     if (!thereIsUpperRecordOf(change->writerGUID, change->sequenceNumber))
     {
+        // For a trusted (SPDP/SEDP) framework writer that is NOT currently matched, do not advance
+        // last_notified. Otherwise an SPDP/SEDP sample accepted during the unmatched window (e.g.
+        // just after a lease-driven removal) bumps last_notified under the raw writer GUID; if that
+        // record is not later migrated to the persistence GUID it gates every subsequent frozen-
+        // sequence re-announce, so PDPListener never fires again and the participant is never
+        // re-discovered (silent isolation). Backport of the guard introduced upstream in v2.6.7.
+        bool update_notified = true;
+        if (m_trustedWriterEntityId == change->writerGUID.entityId)
+        {
+            const GUID_t wguid = change->writerGUID;
+            update_notified = std::any_of(matched_writers_.begin(), matched_writers_.end(),
+                            [&wguid](const RemoteWriterInfo_t& w) -> bool
+                            {
+                                return w.guid == wguid;
+                            });
+        }
+
         if (mp_history->received_change(change, 0))
         {
             Time_t::now(change->receptionTimestamp);
-            update_last_notified(change->writerGUID, change->sequenceNumber);
+            if (update_notified)
+            {
+                update_last_notified(change->writerGUID, change->sequenceNumber);
+            }
             ++total_unread_;
 
             if (getListener() != nullptr)
